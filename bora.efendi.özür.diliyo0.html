@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Özür Dileme Uygulaması</title>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: 'Helvetica', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden; /* İçerik hafifçe taşarsa kaydırma çubuklarını engeller */
+        }
+
+        .container {
+            text-align: center;
+            position: relative;
+            width: 100%;
+            max-width: 600px; /* Konteyner genişliğini sınırlar */
+        }
+
+        #title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        #message {
+            font-size: 1em;
+            margin-bottom: 10px;
+        }
+
+        #acceptButton {
+            font-size: 1em;
+            font-weight: bold;
+            background-color: white;
+            color: black;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            margin-top: 20px; /* Butonun üstüne biraz boşluk ekler */
+        }
+
+        canvas {
+            display: block; /* Kanvasın altında fazladan boşluk bırakmaz */
+            margin: 0 auto; /* Kanvası ortalar */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="title">seni üzdüğüm ve kırdığım için çooook özür dilerim güzel sevgilimmmm</h1>
+        <canvas id="heartCanvas" width="500" height="300"></canvas>
+        <p id="message">Lütfen affet lüüüütfeeen (reis yaşvarıyo bak).</p>
+        <button id="acceptButton">Affettim ve bir öpücük verdim</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('heartCanvas');
+        const ctx = canvas.getContext('2d');
+        const messageLabel = document.getElementById('message');
+        const acceptButton = document.getElementById('acceptButton');
+
+        let animationRunning = false; // Kalp dolma/parlama animasyonunu kontrol eder
+        let initialDrawingAnimationId; // Başlangıçtaki çizgili kalp animasyonunun ID'sini tutar
+        let fillAnimationId; // Kalp dolum animasyonunun ID'sini tutar
+
+        const heartSize = 120; // Parametrik kalbin boyutunu ayarlar
+        const heartX = canvas.width / 2;
+        const heartY = canvas.height / 2;
+        const outlineColor = 'pink'; // Kalbin dış çerçeve rengi
+        const fillColor = 'red'; // Kalbi dolduracak çizgilerin rengi ve nihai dolgu rengi
+
+        // Kalp şekli için parametrik denklemler
+        function xt(t) {
+            return 16 * Math.pow(Math.sin(t), 3);
+        }
+
+        function yt(t) {
+            return 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+        }
+
+        // --- Başlangıçtaki Kalp Çizim Animasyonu (ilk isteğinden) ---
+        let i = 0; // Çizgileri çizmek için mevcut iterasyon
+        const totalInitialIterations = 2500; // Çizilecek toplam çizgi sayısı
+        const initialAnimationSpeed = 0.05; // Çizim hızını ayarlar (daha küçük değer daha yavaş)
+
+        function drawInitialHeartLines() {
+            if (i >= totalInitialIterations || animationRunning) {
+                cancelAnimationFrame(initialDrawingAnimationId); // requestAnimationFrame döngüsünü durdurur
+                // Başlangıç animasyonu tamamlandığında (ve butona basılmadıysa), kalbi pembe dış çerçeve olarak çiz.
+                if (!animationRunning) {
+                     ctx.clearRect(0, 0, canvas.width, canvas.height); // Temizle
+                     drawDecorations(); // Dekorasyonları çiz
+                     drawHeartOutlinePress(heartX, heartY, heartSize, 'rgba(255, 255, 255, 0.3)'); // Kalp baskısını çiz
+                     drawHeartShapeOutline(heartX, heartY, heartSize, outlineColor); // Sadece pembe dış çizgiyi çiz
+                }
+                return;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Tüm kanvası temizle
+            drawDecorations(); // Statik dekorasyonları tekrar çiz
+            drawHeartOutlinePress(heartX, heartY, heartSize, 'rgba(255, 255, 255, 0.3)'); // Kalp baskısını çiz
+
+            // Önce pembe dış çizgiyi çizelim ki çizgiler onun içinde kalsın
+            drawHeartShapeOutline(heartX, heartY, heartSize, outlineColor);
+
+            // Mevcut çizgiyi çiz (kırmızı renkte)
+            const t = i * initialAnimationSpeed;
+            const x = xt(t) * (heartSize / 16); // Kanvasa sığdırmak için ölçeklendir
+            const y = yt(t) * (heartSize / 16);
+
+            ctx.beginPath();
+            ctx.moveTo(heartX, heartY); // Merkezden başla
+            ctx.lineTo(heartX + x, heartY - y); // Kalp eğrisindeki noktaya çiz (Y ekseni ters çevrildi)
+            ctx.strokeStyle = fillColor; // Çizim çizgilerinin rengi (kırmızı)
+            ctx.stroke();
+
+            i++;
+            initialDrawingAnimationId = requestAnimationFrame(drawInitialHeartLines);
+        }
+
+        // --- Kalbi Düzgün Bir Şekilde Çizen Fonksiyon (sadece dış çizgi için) ---
+        function drawHeartShapeOutline(x, y, size, color) {
+            ctx.beginPath();
+            const points = [];
+            for (let j = 0; j <= 200; j++) {
+                const t = (j / 200) * 2 * Math.PI;
+                const dx = xt(t);
+                const dy = yt(t);
+                points.push({ x: x + size * dx / 16, y: y - size * dy / 16 });
+            }
+            if (points.length > 0) {
+                ctx.moveTo(points[0].x, points[0].y);
+                for (let k = 1; k < points.length; k++) {
+                    ctx.lineTo(points[k].x, points[k].y);
+                }
+            }
+            ctx.closePath();
+            ctx.strokeStyle = color;
+            ctx.stroke();
+        }
+
+        // --- Kalp Dolum Animasyonu (Yeni, senin kodunla) ---
+        let currentFillIteration = 0;
+        const totalFillIterations = 4000; // Kalbi dolduracak toplam çizgi sayısı (daha yoğun olması için artırıldı)
+        const fillAnimationSpeed = 0.02; // Dolum hızı (daha yoğun olması için düşürüldü)
+
+        function animateHeartFillWithLines() {
+            cancelAnimationFrame(initialDrawingAnimationId); // Başlangıçtaki çizim animasyonunu durdur
+            animationRunning = true; // Ana animasyonun başladığını işaretle
+            currentFillIteration = 0; // Dolum animasyonu her başladığında sıfırlansın
+
+            function fillFrame() {
+                if (currentFillIteration > totalFillIterations) {
+                    cancelAnimationFrame(fillAnimationId);
+                    messageLabel.textContent = "Seni seviyorum <3";
+                    acceptButton.textContent = "Affettiğin için teşekkür ederim";
+                    animateHeartGlow(); // Dolum bittikten sonra parlama animasyonunu başlat
+                    return;
+                }
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // Tüm kanvası temizle
+                drawDecorations(); // Statik dekorasyonları tekrar çiz
+                drawHeartOutlinePress(heartX, heartY, heartSize, 'rgba(255, 255, 255, 0.3)'); // Kalp baskısını tekrar çiz
+
+                // Önce pembe dış çizgiyi çiziyoruz
+                drawHeartShapeOutline(heartX, heartY, heartSize, outlineColor);
+
+                // Şimdiye kadar çizilmiş tüm dolum çizgilerini tekrar çizerek doluluğu koru
+                for (let j = 0; j < currentFillIteration; j++) {
+                    const t = j * fillAnimationSpeed;
+                    const x = xt(t) * (heartSize / 16);
+                    const y = yt(t) * (heartSize / 16);
+
+                    ctx.beginPath();
+                    ctx.moveTo(heartX, heartY);
+                    ctx.lineTo(heartX + x, heartY - y);
+                    ctx.strokeStyle = fillColor; // Kırmızı çizgilerle doldur
+                    ctx.stroke();
+                }
+
+                currentFillIteration++;
+                fillAnimationId = requestAnimationFrame(fillFrame);
+            }
+            fillFrame(); // Dolum animasyonunu başlat
+        }
+
+        // --- Kalp Parlama Animasyonu (önceki kodundan) ---
+        function animateHeartGlow() {
+            let glowCount = 0;
+            const numGlows = 5; // Parlama sayısı
+            const glowInterval = setInterval(() => {
+                if (glowCount >= numGlows) {
+                    clearInterval(glowInterval);
+                    return;
+                }
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawDecorations();
+                drawHeartOutlinePress(heartX, heartY, heartSize, 'rgba(255, 255, 255, 0.3)');
+
+                // Parlama efekti sırasında kalbi tamamen kırmızı dolu olarak çizelim
+                // Bu kısım, çizgi çizme mantığıyla dolu kalbin görünümünü yansıtacak şekilde ayarlandı.
+                // Parlama anında içi tam kırmızı olsun istiyorsak, genel bir fill kullanırız.
+                // Yoksa, çizgi çizme animasyonunu sonuna kadar tekrarlamamız gerekir ki bu da yavaş olur.
+                // Şimdilik parlama anında düz dolu kırmızı kalp yapıyoruz.
+                ctx.beginPath();
+                const points = [];
+                for (let j = 0; j <= 200; j++) {
+                    const t = (j / 200) * 2 * Math.PI;
+                    const dx = xt(t);
+                    const dy = yt(t);
+                    points.push({ x: heartX + heartSize * dx / 16, y: heartY - heartSize * dy / 16 });
+                }
+                ctx.moveTo(points[0].x, points[0].y);
+                for (const point of points) {
+                    ctx.lineTo(point.x, point.y);
+                }
+                ctx.closePath();
+
+                if (glowCount % 2 === 0) {
+                    ctx.fillStyle = 'white'; // Parlak beyaz parlama
+                    ctx.strokeStyle = 'white'; // Çerçevesi de beyaz olsun
+                } else {
+                    ctx.fillStyle = fillColor; // Normal kırmızı dolgu
+                    ctx.strokeStyle = outlineColor; // Pembe dış çizgi
+                }
+                ctx.fill();
+                ctx.stroke();
+
+                glowCount++;
+            }, 200); // Parlama darbe hızı
+        }
+
+
+        // "Kalp baskısı"nı (hafif dış çizgi) simüle eden fonksiyon
+        function drawHeartOutlinePress(x, y, size, color) {
+            ctx.beginPath();
+            const points = [];
+            for (let j = 0; j <= 200; j++) {
+                const t = (j / 200) * 2 * Math.PI;
+                const dx = xt(t);
+                const dy = yt(t);
+                const pointX = x + (size + 8) * dx / 16;
+                const pointY = y - (size + 8) * dy / 16;
+                points.push({ x: pointX, y: pointY });
+            }
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let k = 1; k < points.length; k++) {
+                ctx.lineTo(points[k].x, points[k].y);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.lineWidth = 1;
+        }
+
+        // --- Üzücü Kedi ve Çiçek Çizim Fonksiyonları ---
+        // Bu fonksiyonlar değişmeden kaldı, önceki açıklamalarda detaylıca bahsedildi.
+        function drawFlower(x, y, size, color) { /* ... kod ... */
+            const numPetals = Math.floor(Math.random() * (12 - 7 + 1) + 7);
+            const angleOffset = Math.random() * 2 * Math.PI;
+            for (let i = 0; i < numPetals; i++) {
+                const angle = (2 * Math.PI / numPetals) * i + angleOffset;
+                const petalXOffset = size * Math.cos(angle);
+                const petalYOffset = size * Math.sin(angle);
+
+                const petalPoints = [];
+                for (let j = 0; j < 20; j++) {
+                    const t = j / 19 * Math.PI;
+                    const radiusRatio = 0.7 + Math.random() * 0.5;
+                    const petalX = x + petalXOffset * radiusRatio * Math.cos(t * 1.5 + Math.PI / 2) * Math.sin(t / 2 * 3);
+                    const petalY = y + petalYOffset * radiusRatio * Math.sin(t * 1.5 + Math.PI / 2) * Math.cos(t / 2 * 3);
+                    petalPoints.push({ x: petalX, y: petalY });
+                }
+                ctx.beginPath();
+                ctx.moveTo(petalPoints[0].x, petalPoints[0].y);
+                for (const point of petalPoints) {
+                    ctx.lineTo(point.x, point.y);
+                }
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
+            ctx.beginPath();
+            ctx.arc(x, y, size / 3, 0, 2 * Math.PI);
+            ctx.fillStyle = 'yellow';
+            ctx.fill();
+        }
+
+        function drawSadCat(x, y, size, color) { /* ... kod ... */
+            const faceSize = size * 0.7;
+            const eyeSize = faceSize * 0.15;
+            const earSize = faceSize * 0.3;
+            const noseSize = faceSize * 0.08;
+
+            // Yüz
+            ctx.beginPath();
+            ctx.ellipse(x, y, faceSize, faceSize, 0, 0, 2 * Math.PI);
+            ctx.fillStyle = "white";
+            ctx.strokeStyle = color;
+            ctx.fill();
+            ctx.stroke();
+
+            // Kulaklar
+            ctx.beginPath();
+            ctx.moveTo(x - faceSize * 0.7, y - faceSize * 0.9);
+            ctx.lineTo(x - faceSize * 0.3, y - faceSize * 1.6);
+            ctx.lineTo(x - faceSize * 0.1, y - faceSize * 1.1);
+            ctx.closePath();
+            ctx.fillStyle = "white";
+            ctx.strokeStyle = color;
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(x + faceSize * 0.7, y - faceSize * 0.9);
+            ctx.lineTo(x + faceSize * 0.3, y - faceSize * 1.6);
+            ctx.lineTo(x + faceSize * 0.1, y - faceSize * 1.1);
+            ctx.closePath();
+            ctx.fillStyle = "white";
+            ctx.strokeStyle = color;
+            ctx.fill();
+            ctx.stroke();
+
+            // Gözler (üzgün ifade)
+            ctx.beginPath();
+            ctx.ellipse(x - faceSize / 2.5, y - faceSize / 4, eyeSize, eyeSize / 2, 0, 0, 2 * Math.PI);
+            ctx.fillStyle = "black";
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(x + faceSize / 2.5, y - faceSize / 4, eyeSize, eyeSize / 2, 0, 0, 2 * Math.PI);
+            ctx.fillStyle = "black";
+            ctx.fill();
+
+            // Burun
+            ctx.beginPath();
+            ctx.moveTo(x - noseSize / 1.2, y + faceSize / 5);
+            ctx.lineTo(x, y + faceSize / 4);
+            ctx.lineTo(x + noseSize / 1.2, y + faceSize / 5);
+            ctx.closePath();
+            ctx.fillStyle = "pink";
+            ctx.fill();
+
+            // Ağız (üzgün)
+            ctx.beginPath();
+            ctx.arc(x, y + faceSize / 2.7, faceSize / 2.4, 0, Math.PI);
+            ctx.strokeStyle = "black";
+            ctx.stroke();
+        }
+
+        function drawDecorations() {
+            const emojiPositions = [
+                { x: 30, y: 30 }, { x: 470, y: 30 }, { x: 30, y: 270 }, { x: 470, y: 270 }, { x: 250, y: 30 }
+            ];
+
+            const flowerPositions = [
+                { x: 70, y: 70 }, { x: 430, y: 70 }, { x: 70, y: 230 }, { x: 430, y: 230 }, { x: 250, y: 230 }, { x: 20, y: 120 }, { x: 480, y: 120 }
+            ];
+
+            for (const pos of emojiPositions) {
+                drawSadCat(pos.x, pos.y, 20, "white");
+            }
+            for (const pos of flowerPositions) {
+                drawFlower(pos.x, pos.y, 15, 'red');
+            }
+        }
+
+        // --- Uygulamanın Başlangıç Ayarları ---
+        drawInitialHeartLines(); // Sayfa yüklendiğinde çizgili kalp animasyonunu başlat
+        // Butona tıklandığında kalp doldurma animasyonunu başlat
+        acceptButton.addEventListener('click', () => {
+            if (!animationRunning) { // Animasyon zaten çalışmıyorsa başlat
+                animateHeartFillWithLines(); // Yeni dolum animasyonunu çağır
+            }
+        });
+    </script>
+</body>
+</html>
